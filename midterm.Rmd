@@ -1,0 +1,624 @@
+---
+title: "Quantitative Investment Analysis Midterm"
+author: "Refik Türkeli"
+date: "25/11/2018"
+output:
+  pdf_document:
+    number_sections: yes
+    toc: yes
+    toc_depth: 2
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.height = 3)
+library(scales)
+library(tidyverse)
+library(lubridate)
+library(psych)
+library(nloptr)
+library(knitr)
+library(here)
+library(glue)
+perc <- function(number, digits = 2, math = TRUE) {
+    round(number * 100, digits) %>% 
+        paste0(if_else(math, "\\%", "%"))
+}
+matrix_perc <- function(mx, digits = 2) {
+    apply(mx, c(1,2), FUN = perc, digits, math = FALSE) %>% 
+        kable(align = "r")
+}
+```
+
+\newpage
+
+# Question 1
+
+Bayer Pharmaceuticals (BP) has branched out and is now promoting a vaccine which is supposed to prevent statisticitis, a nasty disease afflicting students at a University. They are trying to convince the university’s health center that the vaccine is worth stocking. The campus health center has agreed to stock and administer the vaccine if it sells well enough, at least `mu` = 50 vaccines per week. VP arranges for the health center to conduct a 40 week trial with the goal of convincing the center to stock the vaccine. They find that the center has administered an average of X = 55 vaccines per week over that period with a std. dev. of s = 7.99.
+
+```{r}
+sample_mean <- 55
+sample_sd <- 7.99
+sample_n <- 40
+conf_int <- 0.95
+null_value <- 50
+```
+
+## a
+
+### Q. Compute a 95% confidence interval for `mu`, the mean number of vaccines the health center will administer per week in the long run. Does it look like the health center will be willing to stock the vaccine? Explain.
+
+### Answer
+
+```{r}
+standard_error <- sample_sd / sqrt(sample_n)
+significance <- 1 - conf_int
+upper_z <- qnorm(significance / 2, lower.tail = FALSE)
+scaled_z <- upper_z * standard_error
+min_mean <- sample_mean - scaled_z
+max_mean <- sample_mean + scaled_z
+```
+
+$$
+\begin{aligned}
+\sigma_{\bar{X}} &= `r round(standard_error, 2)`\\
+z_{`r round(significance / 2, 3)`} &= `r round(upper_z, 2)`\\
+\mu &= `r sample_mean` \pm `r round(scaled_z, 2)`\\
+`r round(min_mean, 2)` \le \mu &\le `r round(max_mean, 2)`
+\end{aligned}
+$$
+
+It looks like health center will stock the vaccine because the lower point of sales estimate is higher than the required minimum of $`r null_value`$.
+
+## b
+
+### Q. Perform the hypothesis test using test statistics that BP will conduct to convince the health center the vaccine is worth stocking. In other words, give the null and alternative hypotheses, both mathematically and in words, and explain your reasoning.
+
+### Answer
+
+$$
+\begin{aligned}
+H_0 : \mu &< `r null_value`\\
+H_a : \mu &\ge `r null_value`
+\end{aligned}
+$$
+Null hypothesis is that the vaccine won't sell enough worth stocking. Alternative hypothesis is that it will sell more than the required minimum of $`r null_value`$
+
+```{r}
+test_statistic <- (sample_mean - null_value) / standard_error
+rejection_point <- qnorm(significance, lower.tail = FALSE)
+rejected <- test_statistic > rejection_point
+```
+
+$$
+\begin{aligned}
+\text{Test Statistic} &= `r round(test_statistic, 2)`\\
+\text{Rejection Point} &= `r round(rejection_point, 2)`
+\end{aligned}
+$$
+Test statistic is larger than the rejection point. Null hypothesis is rejected. This means the vaccine will sell enough and is worth stocking.
+
+## c
+
+### Q. Conduct the hypothesis test using p-value and state your real-conclusions assuming you need to be 95% sure the vaccine is worthwhile before you stock it. Is this consistent with your result from (b)?
+
+### Answer
+
+```{r}
+p_value <- pnorm(test_statistic, lower.tail = FALSE)
+```
+
+$$
+\begin{aligned}
+\alpha &= `r perc(significance, 2)`\\
+p &= `r perc(p_value, 4)`\\
+\end{aligned}
+$$
+p value is less than the significance level meaning that the chances of getting the result from experiment by chance is lower than the accepted level of error. This is consistent with the result from b.
+
+\newpage
+
+## Extra
+
+```{r}
+m <- null_value; se <- standard_error; min_m <- m - 5 * se; max_m <- m + 5 * se
+reject_m <- m + rejection_point * se; test_m <- m + test_statistic * se
+ggplot(tibble(x = c(min_m, max_m)), aes(x)) +
+    ylab("P(mean)") + xlab("mean") +
+    stat_function(fun = dnorm, args = list(mean = m, sd = se)) +
+    stat_function(fun = dnorm, args = list(mean = m, sd = se), geom = "area", fill = "red",
+                  alpha = 0.5, xlim = c(reject_m, max_m)) +
+    geom_vline(xintercept = test_m, color = "blue") +
+    scale_x_continuous(breaks = round(c(min_m, m, reject_m, test_m, max_m), 2))
+```
+Red area is the rejection zone according to the confidence interval. In this case it is `r perc(significance)`. Our sample is on the blue line. Since it is inside the red area, we reject the null hypothesis. The area to the right side of the blue line is the p value. It is too small to be noticed on this plot.
+
+# Question 2
+
+A car manufacturer receives its air conditioning units from 3 different suppliers, A; B; and C. 20% of its units come from supplier A, 30% from supplier B and 50% from supplier C. It is known that 10% of the units from supplier A are defective, 8% of units from supplier B are defective and 5% of units from supplier C are defective. If a unit is selected at random and is found to be defective, what is the probability that it came from:
+
+```{r}
+supply <- matrix(c(0.2, 0.3, 0.5, 0.1, 0.08, 0.05), nrow = 3, ncol = 2, 
+                 dimnames = list(c("A", "B", "C"), c("Weight", "Defective")))
+matrix_perc(supply)
+```
+
+## a
+
+### Q. Supplier A? Write probability functions and explain your answer.
+
+### Answer
+
+```{r}
+p_defective <- sum(supply[,"Weight"] * supply[,"Defective"])
+p_a_and_defective <- supply["A", "Weight"] * supply["A", "Defective"]
+p_a_given_defective <- p_a_and_defective / p_defective
+```
+
+$$
+\begin{aligned}
+P(Defective) &= `r perc(p_defective)`\\
+P(A \cap Defective) &= `r perc(p_a_and_defective)`\\
+P(A \mid Defective) &= `r perc(p_a_given_defective)`\\
+\end{aligned}
+$$
+Because:
+
+$$ P(A\mid B)={\frac {P(A \cap B)}{P(B)}} $$
+
+## b
+
+### Q. Supplier C? Write probability functions and explain your answer.
+
+### Answer
+
+```{r}
+p_c_and_defective <- supply["C", "Weight"] * supply["C", "Defective"]
+p_c_given_defective <- p_c_and_defective / p_defective
+```
+
+$$
+\begin{aligned}
+P(C \cap Defective) &= `r perc(p_c_and_defective)`\\
+P(C \mid Defective) &= `r perc(p_c_given_defective)`\\
+\end{aligned}
+$$
+
+# Question 3 
+
+Garanti believes the following probability distribution exists for its stock.
+
+```{r}
+garanti <- matrix(c(0.25, 0.45, 0.30, 0.25, 0.10, -0.15), nrow = 3, ncol = 2, 
+                  dimnames = list(c("Boom", "Normal", "Recession"), 
+                                  c("Probability", "Return")))
+matrix_perc(garanti)
+```
+
+## a
+
+### Q. What is the expected return of Garanti stock?
+
+### Answer
+
+```{r}
+expected_return <- sum(garanti[,"Probability"] * garanti[,"Return"])
+```
+
+$$ \operatorname{E}\big(R\big) = `r perc(expected_return)` $$
+
+## b  
+
+### Q. What is the expected variance and standard deviation of Garanti stock?
+
+### Answer
+
+```{r}
+expected_variance <- 
+    sum(((garanti[,"Return"] - expected_return) ^ 2) * garanti[,"Probability"])
+expected_stdev <- sqrt(expected_variance)
+```
+
+$$
+\begin{aligned}
+\sigma^{2} \big(R\big) &= `r perc(expected_variance)`\\
+\sigma \big(R\big) &= `r perc(expected_stdev)`\\
+\end{aligned}
+$$
+
+## c
+
+### Q. What is the coefficient of variation on the company's stock?
+
+### Answer
+
+```{r}
+cv <- expected_stdev / expected_return
+```
+
+$$ {\widehat {c_{\rm {v}}}} = `r round(cv, 2)`$$
+
+## d
+
+### Q. Assuming that the probabilities are calculated empirically based on the last 20 years annual returns, Can we conclude that the expected return on Garanti is higher than the 2% benchmark index return, using a 5% level of significance?
+
+```{r}
+sample_n <- 20
+benchmark <- 0.02
+significance <- 0.05
+```
+
+### Answer
+
+```{r}
+sample_error <- expected_stdev / sqrt(sample_n)
+test_statistic <- (expected_return - benchmark) / sample_error
+rejection_point <- qt(significance, sample_n - 1, lower.tail = FALSE)
+```
+
+$$
+\begin{aligned}
+H_0 &: \operatorname{E}\big(R\big) \le `r perc(benchmark)`\\
+H_a &: \operatorname{E}\big(R\big) > `r perc(benchmark)`\\
+\sigma_{\bar{X}} &= `r perc(sample_error)`\\
+\text{Test Statistic} &= `r round(test_statistic, 2)`\\
+\text{Rejection Point} &= `r round(rejection_point, 2)`\\
+\end{aligned}
+$$
+We can't conclude that Garanti will bring returns better than the benchmark with the given level of significance. If Test Statistic was larger than the Rejection Point we could have rejected the null hypothesis of returns being lesser than the benchmark.
+
+## e
+
+### Q. Test whether Garanti's expected variance is equal to 2% with a 90% confidence interval?
+
+```{r}
+conf_int <- 0.90
+s2 <- 0.02
+```
+
+### Answer
+
+```{r}
+significance <- 1 - conf_int
+deg_f <- sample_n - 1
+f_stat <- expected_variance / s2
+f_rejection <- qf(significance / 2, deg_f, deg_f, lower.tail = FALSE) 
+```
+
+$$
+\begin{aligned}
+F &= `r round(f_stat, 2)`\\
+\text{Rejection Point} &= `r round(f_rejection, 2)`\\
+\end{aligned}
+$$
+It is not possible to reject the null hypothesis of Garanti's variance being equal to $`r perc(s2)`$, because the F value is not bigger than the Rejection Point.
+
+\newpage
+
+## Extra
+
+```{r}
+ggplot(tibble(x = c(0, 3)), aes(x)) +
+    ylab("P(F)") + xlab("F") +
+    stat_function(fun = df, args = list(deg_f, deg_f)) +
+    stat_function(fun = df, args = list(deg_f, deg_f), geom = "area", fill = "red",
+                  alpha = 0.5, xlim = c(f_rejection, 3)) +
+    geom_vline(xintercept = f_stat, color = "blue") +
+    scale_x_continuous(breaks = round(c(0, f_stat, f_rejection, 3), 2))
+```
+
+On F-tests, null hypothesis is that the variance is equal. If the ratio of sample variance and benchmark variance was in the red area, we could have rejected the null hypothesis. In this case we can't because samples F statistic which is the blue line is not in the red area. Red area is $`r perc(significance / 2)`$ in our test.
+
+# Question 4
+
+The checking accounts of Garanti Bank are categorized by age of account and balance in account. We are going to select an account at random from this group of 8,000 accounts.
+
+```{r}
+account_n <- matrix(
+    c(1750, 1250, 2000, 1000, 1250, 750), nrow = 2, ncol = 3, 
+    dimnames = list(c("<5y", ">5y"), c("0-10k", "10k-100k", "100k+")))
+kable(account_n, format.args = list(big.mark = ','))
+```
+
+\newpage
+
+```{r}
+balance_n <- colSums(account_n)
+kable(t(balance_n), format.args = list(big.mark = ','))
+```
+
+```{r}
+age_n <- rowSums(account_n)
+kable(t(age_n), format.args = list(big.mark = ','))
+```
+
+## a
+
+### Q. What is the probability of selecting an account that is 5 or more years old and has an account balance of TL15,000.
+
+### Answer
+
+```{r}
+account_total <- sum(account_n)
+p_gt5y_and_15k <- account_n[">5y", "10k-100k"] / account_total
+```
+
+$$ P(year > 5\ \cap\ 15,000) = `r perc(p_gt5y_and_15k)` $$
+
+## b
+
+### Q. What is the probability of selecting an account that is less than 5 years old given that the account balance is TL128,000.
+
+### Answer
+
+```{r}
+p_lt5y_given_128k <- account_n["<5y", "100k+"] / balance_n["100k+"]
+```
+
+$$ P(year < 5\ \cap\ 128,000) = `r perc(p_lt5y_given_128k)` $$
+
+## c
+
+### Q. What is the probability of selecting an account with a TL5,000 balance.
+
+### Answer
+
+```{r}
+p_5k <- balance_n["0-10k"] / account_total
+```
+
+$$ P(5,000) = `r perc(p_5k)` $$
+
+## d
+
+### Q. What is the conditional probability that the account balance is less than 9,999TL, given that the account is more than 5 years old.
+
+### Answer
+
+```{r}
+p_lt10k_given_gt5y <- account_n[">5y", "0-10k"] / age_n[">5y"]
+```
+
+$$ P(balance < 10,000\ \cap\ year > 5) = `r perc(p_lt10k_given_gt5y)` $$
+
+## e
+
+### Q. What is the conditional probability that the account is less than 5 years old, given that its balance is TL75,000.
+
+### Answer
+
+```{r}
+p_lt5y_given_75k <- account_n["<5y", "10k-100k"] / balance_n["10k-100k"]
+```
+
+$$ P(year < 5\ \mid\ 75,000) = `r perc(p_lt5y_given_75k)` $$
+
+## f
+
+### Q. Are age of account and balance in account independent at Garanti Bank? Why or why not?
+
+### Answer
+
+```{r}
+p_lt5y <- age_n["<5y"] / account_total
+p_10k <- balance_n["0-10k"] / account_total
+p_lt5y_and_10k <- account_n["<5y", "0-10k"] / account_total
+p_lt5y_times_10k <- p_lt5y * p_10k
+independent <- p_lt5y_and_10k == p_lt5y_times_10k
+```
+
+$$
+\begin{aligned}
+P(year < 5) &= `r perc(p_lt5y)`\\
+P(balance < 10,000) &= `r perc(p_10k)`\\
+P(year < 5\ \cap\ balance < 10,000) &= `r perc(p_lt5y_and_10k)`\\
+P(year < 5) \times P(balance < 10,000) &= `r perc(p_lt5y_times_10k)`\\
+\end{aligned}
+$$
+Not independent because this condidition is not satisfied:
+$$ P(A \cap B) = P(A) \times P(B) $$
+
+## g
+
+### Q. Suppose 25 accounts are drawn at random from Garanti Bank. Let "F" be the event "At least 5 accounts are less than 5 years old". State the complementing event "F".
+
+### Answer
+
+Less than 5 accounts are less than 5 years old.
+
+# Question 5
+
+Below you can see the daily closing prices for four listed stocks.
+
+```{r, message=FALSE}
+closing <- as.matrix(read.csv(here("q5_closing.csv"), row.names = "Date"))
+kable(head(closing, 5))
+```
+
+First 5 rows of total $`r nrow(closing)`$ are shown. 
+
+## a
+
+### Q. Build a portfolio from these five stocks that would minimize the variance of the portfolio.
+
+```{r}
+returns <- tail(closing, -1) / head(closing, -1) - 1
+matrix_perc(head(returns, 5))
+```
+
+First 5 rows of total $`r nrow(returns)`$ are shown. 
+
+\newpage
+
+### Answer
+
+```{r, message=FALSE}
+get_pf_return <- function(wt) returns %*% wt
+get_pf_var <- function(wt) as.numeric(var(get_pf_return(wt)))
+gt0_constaint <- function(wt) wt
+eq1_contraint <- function(wt) sum(wt) - 1
+optimized <- slsqp(rep(0.2, 5), get_pf_var, 
+                   hin = gt0_constaint, heq = eq1_contraint)
+opt_wt <- set_names(optimized$par, colnames(returns))
+opt_var <- optimized$value
+```
+
+Optimized weights:
+
+```{r}
+matrix_perc(t(opt_wt))
+```
+
+$$ \min(\sigma^2_p) = `r perc(opt_var, 5)` $$
+
+## b
+
+### Q. The daily returns on your portfolio. Show descriptive stats of the daily returns of your portfolio.
+
+### Answer
+
+```{r}
+opt_pf_return <- get_pf_return(opt_wt)
+colnames(opt_pf_return) <- "Portfolio Return"
+matrix_perc(head(opt_pf_return, 5))
+```
+
+\newpage
+
+```{r}
+descriptive <- describe(opt_pf_return, trim = 0)
+rownames(descriptive) <- "Portfilio Return"
+kable(t(select(descriptive, -vars)))
+```
+
+## c
+
+### Q. Calculate the Sharpe ratio of the portfolio based on daily returns (assume 0% risk-free rate)
+
+### Answer
+
+```{r}
+sharpe <- descriptive[,"mean"] / descriptive[,"sd"]
+```
+
+$$ S = `r round(sharpe, 2)` $$
+
+## d
+
+### Q. Construct a 95% confidence interval for the daily returns on your portfolio, assuming that the portfolio returns are normally distributed.
+
+### Answer
+
+```{r}
+conf_int <- 0.95
+significance <- 1 - conf_int
+upper_z <- qnorm(significance / 2, lower.tail = FALSE)
+scaled_z <- upper_z * descriptive[,"se"]
+min_mean <- descriptive[,"mean"] - scaled_z
+max_mean <- descriptive[,"mean"] + scaled_z
+```
+
+$$
+\begin{aligned}
+\sigma_{\bar{X}} &= `r perc(descriptive[,"se"])`\\
+z_{`r round(significance / 2, 3)`} &= `r round(upper_z, 2)`\\
+\mu_R &= `r perc(descriptive[,"mean"])` \pm `r perc(scaled_z)`\\
+`r perc(min_mean)` \le \mu_R &\le `r perc(max_mean)`
+\end{aligned}
+$$
+
+## e
+
+### Q. Calculate the probability of your portfolio will earn a daily return of 0.5% or more; assuming that the returns are normally distributed.
+
+### Answer
+
+```{r}
+test_stat <- (descriptive[,"mean"] - 0.005) / descriptive[,"se"]
+prob_of_more <- pnorm(test_stat)
+```
+
+$$
+\begin{aligned}
+\text{Test Statistic} &= `r round(test_stat, 2)`\\
+P(R_p > 0.5\%) &= `r prob_of_more`\\
+\end{aligned}
+$$
+
+## Extra
+
+```{r}
+returns_df <- returns %>% 
+    as_tibble(rownames = "Date") %>% 
+    mutate_at("Date", dmy) %>% 
+    gather("Company", "Return", -Date)
+returns_pf_df <- cbind(opt_pf_return, get_pf_return(rep(0.2, 5))) %>% 
+    `colnames<-`(c("1. Minimum Variance", "2. Equal Weight")) %>% 
+    as_tibble(rownames = "Date") %>% 
+    mutate_at("Date", dmy) %>% 
+    gather("Portfolio", "Return", -Date)
+ggplot(returns_df, aes(x = Date, y = Return)) +
+    geom_line(aes(group = Company), color = "red", alpha = 0.3) +
+    geom_line(aes(x = Date, y = Return), color = "blue",
+              data = filter(returns_pf_df, Portfolio == "1. Minimum Variance")) +
+    coord_cartesian(ylim = c(-0.1, 0.1))
+```
+Red lines are returns for individual companies. The blue line is the minimum variance portfolio return. It can be seen that portfolio return has less deviation.
+
+\newpage
+
+```{r}
+ggplot(returns_pf_df, aes(Return)) +
+    geom_density(aes(fill = Portfolio), alpha = 0.5) +
+    scale_colour_manual(values = c("blue", "red"))
+```
+
+This is a density plot for the optimized minimum variance portfolio's returns. Overlayed on top of it is another portfolio, with the same companies, but with equal weights of 20% each. It can be observed that the optimization managed to make the distribution more peaked, closer to the center with less variance. 
+
+# Question 6
+
+It is known that 65% of MS in Finance students think their Statistics lecturer is cool. In a certain sample, 10 students are picked at random and it is required to calculate the probability that less than 3 of the 10 think that their lecturer is cool. 
+
+```{r}
+p <- 0.65
+n <- 10
+```
+
+
+## a
+
+### Q. Name a probability distribution that can be used for modelling this situation stating one necessary assumption for this model to be valid.
+
+### Answer
+
+Binomial distribution is appropriate for modeling. Students response shouldn’t be effected from each other, meaning independence is assumed.
+
+## b
+
+### Q. Use the model to calculate the required probability less than 3 of the 10 think that their lecturer is cool.
+
+### Answer
+
+```{r}
+less_than_3 <- pbinom(3, n, p)
+```
+
+$$ P(X \le 3) = `r perc(less_than_3)` $$
+
+## c
+
+### Q. Calculate the mean and variance of this distribution.
+
+### Answer
+
+```{r}
+mean <- n * p
+variance <- n * p * (1 - p) 
+```
+
+$$
+\begin{aligned}
+\mu &= `r mean`\\
+\sigma &= `r variance`\\
+\end{aligned}
+$$
+

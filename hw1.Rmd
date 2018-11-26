@@ -1,0 +1,293 @@
+---
+title: "Homework 1"
+author: "Refik Türkeli"
+date: "11/11/2018"
+output: pdf_document
+---
+
+```{r setup, include = FALSE}
+library(tidyverse)
+library(moments)
+library(scales)
+library(kimisc)
+library(knitr)
+```
+
+# Exercise 1
+
+Portfolio deviation from benchmark return is given as follows.
+
+```{r echo = FALSE}
+portfolio_return <- tribble(
+    ~year, ~deviation,
+    1992L,    -0.0714,
+    1993L,     0.0162,
+    1994L,     0.0248,
+    1995L,    -0.0259,
+    1996L,     0.0937,
+    1997L,    -0.0055,
+    1998L,    -0.0089,
+    1999L,    -0.0919,
+    2000L,    -0.0511,
+    2001L,    -0.0049,
+    2002L,     0.0684,
+    2003L,     0.0304
+)
+
+portfolio_return %>% 
+    mutate(deviation = percent(deviation)) %>% 
+    kable()
+```
+
+## 1) Binning the returns
+
+Dividing into 4 intervals.
+
+```{r}
+binned <- portfolio_return %>% 
+    mutate(bins = cut(deviation * 100, breaks = 4)) %>% 
+    group_by(bins) %>% 
+    summarise(freq = n()) %>% 
+    mutate(cum_freq = cumsum(freq),
+           rel_freq = freq / sum(freq),
+           cum_rel_freq = cumsum(rel_freq))
+```
+
+```{r echo = FALSE}
+binned %>% 
+    mutate_at(c("rel_freq", "cum_rel_freq"), percent) %>% 
+    kable()
+```
+
+\newpage
+
+## 2) Constructing a histogram
+
+```{r fig.height = 3}
+ggplot(binned, aes(x = bins, y = freq)) +
+    geom_bar(stat = "identity")
+```
+
+## 3) Modal interval of the data
+
+Modal interval is the interval with the highest frequency. 
+
+```{r}
+binned %>% 
+    filter(freq == max(freq)) %>% 
+    select(bins, freq) %>% 
+    kable()
+```
+
+## 4) Tracking error
+
+```{r results = "asis"}
+sd(portfolio_return$deviation) %>% 
+    percent()
+```
+
+\newpage
+
+# Exercise 2
+
+Annual returns for MSCI Germany Index.
+
+```{r echo = FALSE}
+msci <- tribble(
+    ~year, ~return,
+    1993L,  0.4621,
+    1994L, -0.0618,
+    1995L,  0.0804,
+    1996L,  0.2287,
+    1997L,   0.459,
+    1998L,  0.2032,
+    1999L,   0.412,
+    2000L, -0.0953,
+    2001L, -0.1775,
+    2002L, -0.4306
+)
+
+msci %>% 
+    mutate(return = percent(return)) %>% 
+    kable()
+```
+
+## 1) Frequency table
+
+```{r}
+binned <- msci %>% 
+    mutate(bins = cut(return * 100, breaks = 5)) %>% 
+    group_by(bins) %>% 
+    summarise(freq = n()) %>% 
+    mutate(cum_freq = cumsum(freq),
+           rel_freq = freq / sum(freq),
+           cum_rel_freq = cumsum(rel_freq))
+```
+
+```{r echo = FALSE}
+binned %>% 
+    mutate_at(c("rel_freq", "cum_rel_freq"), percent) %>% 
+    kable()
+```
+
+\newpage
+
+## 2) Histogram
+
+```{r fig.height = 3}
+ggplot(binned, aes(x = bins, y = freq)) +
+    geom_bar(stat = "identity")
+```
+
+## 3) Modal interval of the data
+
+```{r}
+binned %>% 
+    filter(freq == max(freq)) %>% 
+    select(bins, freq) %>% 
+    kable()
+```
+
+## 4) Symmetry
+
+The frequency distribution is not symmetric. Higher returns have a higher frequency compared to lower returns.
+
+\newpage
+
+## 5-10) Statistical summaries
+
+```{r}
+stat_list <- list(
+    mean = mean(msci$return),
+    median = median(msci$return),
+    compound = prod(msci$return + 1) ^ (1 / length(msci$return)) - 1,
+    perc30 = quantile(msci$return, probs = 0.3),
+    range = max(msci$return) - min(msci$return),
+    MAD = mean(abs(msci$return - mean(msci$return))),
+    var = var(msci$return),
+    sd = sd(msci$return),
+    skewness = skewness(msci$return),
+    kurtosis = kurtosis(msci$return) - 3
+) %>% 
+    map_at(c("mean", "median", "compound", "perc30", "range", "MAD", "sd"), percent) %>% 
+    map_at(c("skewness", "kurtosis", "var"), partial(round, digits = 2))
+
+tibble(stat = names(stat_list), value = stat_list) %>% 
+    kable()
+```
+
+## Comments about Skewness and Kurtosis
+
+The distribution is negatively skewed. It is skewed to the left. This means that the median is larger than the mean. 
+
+The kurtosis we calculate is the excess kurtosis. In this case it is negative, meaning that the distrbution is less peaked than the normal distribution.
+
+\newpage
+
+# Exercise 3
+
+Annual returns for the MSCI Germany Index and JP Morgan government bonds index is provided as follows.
+
+```{r, echo = FALSE}
+index_return <- tribble(
+    ~year,   ~msci,    ~jpm,
+    1993L,  0.4621,  0.1574,
+    1994L, -0.0618,  -0.034,
+    1995L,  0.0804,   0.183,
+    1996L,  0.2287,  0.0835,
+    1997L,   0.459,  0.0665,
+    1998L,  0.2032,  0.1245,
+    1999L,   0.412, -0.0219,
+    2000L, -0.0953,  0.0744,
+    2001L, -0.1775,  0.0555,
+    2002L, -0.4306,  0.1027
+)
+
+index_return %>% 
+    mutate_at(c("msci", "jpm"), percent) %>% 
+    kable()
+```
+
+## 1) Calculate portfolio return
+
+For a porfolio of MSCI 60% and JPM 40%, returns are as follows.
+
+```{r}
+portfolio_return <- index_return %>% 
+    mutate(portfolio = msci * 0.6 + jpm * 0.4) %>% 
+    select(year, portfolio)
+```
+
+```{r echo = FALSE}
+portfolio_return %>% 
+    mutate(portfolio = percent(portfolio)) %>% 
+    kable()
+```
+
+The expected value of the portfolio is:
+
+```{r, results = "asis"}
+percent(mean(portfolio_return$portfolio))
+```
+
+\newpage
+
+## 2-3) Coefficient of variation and Sharpe
+
+```{r}
+portfolio <- portfolio_return$portfolio
+
+cv_sharpe <- list(
+    cv_msci = sd(index_return$msci) / mean(index_return$msci),
+    cv_jpm = sd(index_return$jpm) / mean(index_return$jpm),
+    cv_portfolio = sd(portfolio) / mean(portfolio),
+    sharpe_msci = (mean(index_return$msci) - 0.0433) / sd(index_return$msci),
+    sharpe_jpm = (mean(index_return$jpm) - 0.0433) / sd(index_return$jpm),
+    sharpe_portfolio = (mean(portfolio) - 0.0433) / sd(portfolio)
+)
+
+tibble(name = names(cv_sharpe), value = as.numeric(cv_sharpe)) %>% 
+    kable(digits = 2)
+```
+
+Eventhough the best return per unit of risk is with JPM, portfolio manages to keep the expected returns relatively higher with less risk. 
+
+\newpage 
+
+# Exercise 4
+
+Ratios for common stock in an equally weighted portfolio are given as follows.
+
+```{r echo = FALSE}
+stock <- tribble(
+                  ~stock,  ~P_E, ~P_S,   ~P_B,
+           "Aber.&Fitch", 13.67, 1.66,   3.43,
+             "Albemarle", 14.43, 1.13,   1.96,
+                  "Avon", 28.06, 2.45, 382.72,
+    "Berkshire Hathaway", 18.46, 2.39,   1.65,
+               "Everest", 11.91, 1.34,    1.3,
+             "FPL Group",  15.8, 1.04,    1.7,
+      "Johnson Controls", 14.24,  0.4,   2.13,
+          "Tenneco Auto",  6.44, 0.07,  41.31
+)
+
+kable(stock)
+```
+
+## 1) Mean and medians
+
+```{r}
+stock %>% 
+    gather(ratio, value, P_E, P_S, P_B) %>% 
+    group_by(ratio) %>% 
+    summarise(mean = mean(value), median = median(value)) %>% 
+    kable(digits = 2)
+```
+
+## 2) Comments
+
+Price to Book ratios mean and median values have a large difference because the mean is highly susceptible to outliers. In this case, Avon and Tenneco's large P/B values distort the mean. Median gives a better sense of P/B.
+
+It may not be a good idea to directly take the mean or median values of these ratios. Ratios don't give any information about the price and price determines the amount of shares (weight) of a stock in the portfolio even when it is equally weighted. A better measure for finding the mean P/E can be 
+
+``Total Portfolio Value / Total EPS``.
