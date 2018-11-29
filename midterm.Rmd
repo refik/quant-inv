@@ -430,7 +430,8 @@ Less than 5 accounts are less than 5 years old.
 Below you can see the daily closing prices for four listed stocks.
 
 ```{r, message=FALSE}
-closing <- as.matrix(read.csv(here("q5_closing.csv"), row.names = "Date"))
+closing <- as.matrix(read.csv(here("midterm_q5_closing.csv"), 
+                              row.names = "Date"))
 kable(head(closing, 5))
 ```
 
