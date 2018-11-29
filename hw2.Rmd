@@ -129,7 +129,6 @@ Yes we can conclude that average spending has decreased. Test statistic is less 
 
 ### Historically, evening long-distance calls from a particular city have averaged 17.2 minutes per call. In a random sample of 35 calls, the sample mean time was 15.8 minutes. Assume the standard deviation is known to be 4 minutes. Using a 0.10 level of significance, is there sufficient evidence to conclude that the average evening long-distance call has decreased?
 
-
 ```{r}
 null_value <- 17.2
 sample_n <- 35
