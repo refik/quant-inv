@@ -1,0 +1,202 @@
+---
+title: "Quantitative Investment Analysis Homework 2"
+author: "Refik Türkeli"
+date: "30/11/2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 1
+
+### We would like to determine if the typical amount spent per customer for lunch at a new restaurant in Istanbul is more than TL60.00. A sample of 45 customers over a ten-week period was randomly selected and the average amount spent was TL45.50. Assume that the standard deviation is known to be TL6.50. Using a 0.05 level of significance, can we conclude the typical amount spent per customer is more than TL60.00?
+
+```{r}
+null_value <- 60
+sample_n <- 45
+sample_mean <- 45.5
+stdev <- 6.5
+a <- 0.05
+```
+
+### Answer
+
+$$
+\begin{aligned}
+H_0 : \mu &\le `r null_value`\\
+H_a : \mu &> `r null_value`
+\end{aligned}
+$$
+
+```{r}
+standard_error <- stdev / sqrt(sample_n)
+rejection_point <- qt(a, sample_n - 1, lower.tail = FALSE)
+test_statistic <- (sample_mean - null_value) / standard_error
+```
+
+$$
+\begin{aligned}
+\sigma_{\bar{X}} &= `r round(standard_error, 2)`\\
+\text{Test Statistic} &= `r round(test_statistic, 2)`\\
+\text{Rejection Point} &= `r round(rejection_point, 2)`\\
+\end{aligned}
+$$
+
+No we can't conclude an increase. Test statistic is less than the rejection point.
+
+\newpage
+
+## Question 2
+
+### Suppose an equity research analyst claims that the mean time to write a research report is at most 4 weeks. A sample of 14 analysts is randomly selected and it is found that the mean time taken by them to write a report was 2.5. Assume also that the standard deviation is known to be 0.6 weeks. Assuming the time to write a research report is normally distributed and using a 0.02 level of significance, would you conclude the analyst’s claim is true?
+
+```{r}
+null_value <- 4
+sample_n <- 14
+sample_mean <- 2.5
+stdev <- 0.6
+a <- 0.02
+```
+
+### Answer
+
+$$
+\begin{aligned}
+H_0 : \mu &> `r null_value`\\
+H_a : \mu &\le `r null_value`
+\end{aligned}
+$$
+
+```{r}
+standard_error <- stdev / sqrt(sample_n)
+rejection_point <- qnorm(a)
+test_statistic <- (sample_mean - null_value) / standard_error
+```
+
+$$
+\begin{aligned}
+\sigma_{\bar{X}} &= `r round(standard_error, 2)`\\
+\text{Test Statistic} &= `r round(test_statistic, 2)`\\
+\text{Rejection Point} &= `r round(rejection_point, 2)`\\
+\end{aligned}
+$$
+Yes we can conlude that the analyst's claim is true. Test statistic is less than the rejection point.
+
+\newpage
+
+## Question 3
+
+### According to a 2010 demographic report, the average Turkish. household spends TL40 per day. Suppose you recently took a random sample of 30 households in Yalova and the results revealed a mean of TL34.50. Suppose the standard deviation is known to be TL6.50. Using a 0.05 level of significance, can it be concluded that the average amount spent per day by Turkish households has decreased?
+
+```{r}
+null_value <- 40
+sample_n <- 30
+sample_mean <- 34.5
+stdev <- 6.5
+a <- 0.05
+```
+
+### Answer
+
+$$
+\begin{aligned}
+H_0 : \mu &\ge `r null_value`\\
+H_a : \mu &< `r null_value`
+\end{aligned}
+$$
+
+```{r}
+standard_error <- stdev / sqrt(sample_n)
+rejection_point <- qt(a, df = sample_n - 1)
+test_statistic <- (sample_mean - null_value) / standard_error
+```
+
+$$
+\begin{aligned}
+\sigma_{\bar{X}} &= `r round(standard_error, 2)`\\
+\text{Test Statistic} &= `r round(test_statistic, 2)`\\
+\text{Rejection Point} &= `r round(rejection_point, 2)`\\
+\end{aligned}
+$$
+
+Yes we can conclude that average spending has decreased. Test statistic is less than the rejection point.
+
+\newpage
+
+## Question 4
+
+### Historically, evening long-distance calls from a particular city have averaged 17.2 minutes per call. In a random sample of 35 calls, the sample mean time was 15.8 minutes. Assume the standard deviation is known to be 4 minutes. Using a 0.10 level of significance, is there sufficient evidence to conclude that the average evening long-distance call has decreased?
+
+
+```{r}
+null_value <- 17.2
+sample_n <- 35
+sample_mean <- 15.8
+stdev <- 4
+a <- 0.10
+```
+
+### Answer
+
+$$
+\begin{aligned}
+H_0 : \mu &\ge `r null_value`\\
+H_a : \mu &< `r null_value`
+\end{aligned}
+$$
+
+```{r}
+standard_error <- stdev / sqrt(sample_n)
+rejection_point <- qt(a, df = sample_n - 1)
+test_statistic <- (sample_mean - null_value) / standard_error
+```
+
+$$
+\begin{aligned}
+\sigma_{\bar{X}} &= `r round(standard_error, 2)`\\
+\text{Test Statistic} &= `r round(test_statistic, 2)`\\
+\text{Rejection Point} &= `r round(rejection_point, 2)`\\
+\end{aligned}
+$$
+
+There is enough evidence to conclude that long-distace call has decreased. Test statistic is less than the rejection point.
+
+\newpage
+
+## Question 5
+
+### Suppose a food production line operates with a mean filling weight of 15 kilograms per container. Since over- or under-filling can be dangerous, a quality control inspector samples 30 items to determine whether or not the filling weight has to be adjusted. The sample revealed a mean of 15.32 kilograms. From past data, the standard deviation is known to be 0.75 kilograms. Using a 0.05 level of significance, can it be concluded that the process is out of control (not equal to 15 kilograms)?
+
+```{r}
+null_value <- 15
+sample_n <- 30
+sample_mean <- 15.32
+stdev <- 0.75
+a <- 0.05
+```
+
+### Answer
+
+$$
+\begin{aligned}
+H_0 : \mu &= `r null_value`\\
+H_a : \mu &\neq `r null_value`
+\end{aligned}
+$$
+
+```{r}
+standard_error <- stdev / sqrt(sample_n)
+rejection_point <- qt(a / 2, df = sample_n - 1, lower.tail = FALSE)
+test_statistic <- (sample_mean - null_value) / standard_error
+```
+
+$$
+\begin{aligned}
+\sigma_{\bar{X}} &= `r round(standard_error, 2)`\\
+\text{Test Statistic} &= `r round(test_statistic, 2)`\\
+\text{Rejection Point} &= `r round(rejection_point, 2)`\\
+\end{aligned}
+$$
+We can conclude that process is out of control on the heavier side. Test statistic is higher than rejection point.
